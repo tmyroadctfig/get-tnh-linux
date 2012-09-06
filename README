@@ -1,0 +1,24 @@
+This programm (get_tnh) is used to get the reading from USH-Tnh (a USB temperature/humidity sensor).
+Please visit
+    http://dograt.homelinux.com:8080/products
+for more detail about the sensor.
+
+
+How to compile?
+    To compile the program, you need the C++ compile (g++). At the top level directory of source code, type
+        make
+    to start the compilation. If it prompt you about missing library, please install them.
+    After the compile done, a single executable file (get_tnh) will generate, type
+        ./get_tnh --help
+    to read the usage detail.
+
+Cross-compile
+    If you want to cross-compile, you need to edit the makefile at the top level directory of the source.
+    Change the line
+        CROSS_COMPILE=0
+    to
+        CROSS_COMPILE=1
+    then modify the line
+        CROSS=/opt/arm-gcc-4.6.3-glibc-2.14.1-s3c6410/bin/arm-s3c6410-linux-gnueabi-
+    to match the cross-compiler you are using.
+    After that, type "make" to start the build.
