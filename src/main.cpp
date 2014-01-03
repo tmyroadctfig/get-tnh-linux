@@ -74,6 +74,8 @@ static int gVerbose = 0;
 static CSerial gSerial;
 static bool gReadTemperature = true;
 static bool gReadHumidity = false;
+static int gLed = -1;
+static const char *gName = NULL;
 
 //==========================================================================
 // Main Entry
@@ -137,6 +139,8 @@ static void ShowHelp (void)
                  "  -t, --temperature               Read Temperature (default)\n"
                  "  -h, --humidity                  Read Humidity\n"
                  "  -a, --all                       Read both Temperature and Humidity\n"
+                 "  -l ONOFF, --led=ONOFF           Set LED ON(1) or OFF(0).\n"
+                 "  -n NAME, --name=NAME            Set sensor name. Use --name=? to read existing name.\n"
                  );
     printf ("\n");
     printf ("\n");
@@ -147,9 +151,14 @@ static void ShowHelp (void)
 //==========================================================================
 static struct option KLongOptions[] =
 {
-    { "help", no_argument, NULL, '?'},
-    { "verbose", no_argument, NULL, 'v'},
-    { "device", required_argument, NULL, 'd'},
+    { "help",           no_argument,        NULL, '?'},
+    { "verbose",        no_argument,        NULL, 'v'},
+    { "device",         required_argument,  NULL, 'd'},
+    { "temperature",    no_argument,        NULL, 't'},
+    { "humidity",       no_argument,        NULL, 'h'},
+    { "all",            no_argument,        NULL, 'a'},
+    { "led",            required_argument,  NULL, 'l'},
+    { "name",           required_argument,  NULL, 'n'},
     { NULL, 0, NULL, 0}
 };
 
@@ -159,7 +168,7 @@ static int ExtractParam (void)
 
     while (1)
     {
-        i = getopt_long (gArgCnt, gArgList, "vd:tha", KLongOptions, NULL);
+        i = getopt_long (gArgCnt, gArgList, "vd:thal:n:", KLongOptions, NULL);
         if (i == EOF)
             break;
         switch (i)
@@ -181,11 +190,19 @@ static int ExtractParam (void)
 
             case 'd':
                 gDevice = optarg;
-               break;
+                break;
+
+            case 'l':
+                gLed = atoi (optarg);
+                break;
+
+            case 'n':
+                gName = optarg;
+                break;
 
             case 'v':
-               gVerbose = 1;
-               break;
+                gVerbose = 1;
+                break;
 
             default:
                 return EXIT_FAILURE;
@@ -254,7 +271,7 @@ static int GetTemperature (void)
 
     f = atof ((char *)rx_buf);
 
-    printf ("%.1f\n", f);
+    printf ("%.2f\n", f);
 
     return 0;
 }
@@ -318,10 +335,228 @@ static int GetHumidity (void)
 
     f = atof ((char *)rx_buf);
 
-    printf ("%.1f\n", f);
+    printf ("%.2f\n", f);
 
     return 0;
 }
+
+//==========================================================================
+// Set LED
+//==========================================================================
+static int SetLed (int aState)
+{
+    unsigned char tx_buf[64];
+    unsigned char rx_buf[128];
+    int rx_len;
+
+    gSerial.Write ((const unsigned char *)"\n", 1);
+    gSerial.Flush ();
+
+    if (aState)
+        memcpy (tx_buf, "I=1\n", 4);
+    else
+        memcpy (tx_buf, "I=0\n", 4);
+
+    if (gSerial.Write (tx_buf, 4) < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Write\n");
+        }
+        return -1;
+    }
+
+#if (SYSTEM_MSW)
+        Sleep (1);
+#else
+        usleep (500000);
+#endif
+
+    rx_len = gSerial.Read (rx_buf, sizeof (rx_buf) - 1);
+    if (rx_len < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Read\n");
+        }
+        return -1;
+    }
+
+    if (rx_len == 0)
+    {
+        if (gVerbose)
+            printf ("ERROR: No response.\n");
+        return -1;
+    }
+
+    if (gVerbose)
+        printf ("Change LED state done.\n");
+
+    return 0;
+}
+
+//==========================================================================
+// Get Sensor Name
+//==========================================================================
+static int GetName (void)
+{
+    unsigned char rx_buf[128];
+    int rx_len;
+    unsigned char ch;
+
+    gSerial.Write ((const unsigned char *)"\n", 1);
+    gSerial.Flush ();
+
+    if (gSerial.Write ((const unsigned char *)"GN\n", 3) < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Write\n");
+        }
+        else
+            printf ("Unknown\n");
+        return -1;
+    }
+
+#if (SYSTEM_MSW)
+        Sleep (1);
+#else
+        usleep (500000);
+#endif
+
+    rx_len = gSerial.Read (rx_buf, sizeof (rx_buf) - 1);
+    if (rx_len < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Read\n");
+        }
+        else
+            printf ("Unknown\n");
+        return -1;
+    }
+
+    if (rx_len == 0)
+    {
+        if (gVerbose)
+            printf ("ERROR: No response.\n");
+        else
+            printf ("Unknown\n");
+        return -1;
+    }
+    rx_buf[rx_len] = 0;
+
+    // Trim tail
+    do
+    {
+        ch = rx_buf[rx_len - 1];
+        if ((ch == ' ') || (ch == '\n') || (ch == '\r') || (ch == '\t'))
+            ch = 0;
+
+        if (ch == rx_buf[rx_len - 1])
+            break;
+
+        rx_len --;
+        rx_buf[rx_len] = ch;
+
+    } while (rx_len > 1);
+
+
+    printf ("%s\n", rx_buf);
+
+    return 0;
+}
+
+//==========================================================================
+// Set Name
+//==========================================================================
+static int SetName (void)
+{
+    const char *ptr;
+    unsigned char tx_buf[64];
+    unsigned char rx_buf[128];
+    int rx_len;
+    int tx_len;
+    unsigned char ch;
+
+    gSerial.Write ((const unsigned char *)"\n", 1);
+    gSerial.Flush ();
+
+    // Form TX buffer
+    tx_buf[0] = 'N';
+    tx_buf[1] = '=';
+
+    ptr = gName;
+    tx_len = 2;
+    while ((*ptr) && (tx_len < 10))
+    {
+        ch = *ptr;
+        if ((ch == ' ') || (ch == '\n') || (ch == '\r') || (ch == '\t'))
+            break;
+
+        tx_buf[tx_len] = ch;
+        ptr ++;
+        tx_len ++;
+    }
+    tx_buf[tx_len] = '\n';
+    tx_len ++;
+
+    if (gSerial.Write (tx_buf, tx_len) < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Write\n");
+        }
+        return -1;
+    }
+
+#if (SYSTEM_MSW)
+        Sleep (1);
+#else
+        usleep (500000);
+#endif
+
+    rx_len = gSerial.Read (rx_buf, sizeof (rx_buf) - 1);
+    if (rx_len < 0)
+    {
+        if (gVerbose)
+        {
+            if (gSerial.ErrorMessage != NULL)
+                printf ("ERROR: %s\n", gSerial.ErrorMessage);
+            else
+                printf ("ERROR: Read\n");
+        }
+        return -1;
+    }
+
+    if (rx_len == 0)
+    {
+        if (gVerbose)
+            printf ("ERROR: No response.\n");
+        return -1;
+    }
+
+    printf ("Set sensor name to '%s' done.\n", gName);
+
+    return 0;
+}
+
+
 //==========================================================================
 //==========================================================================
 //==========================================================================
@@ -368,6 +603,35 @@ int Go (void)
         else
             printf ("NaN\n");
         return EXIT_FAILURE;
+    }
+
+    // Set LED
+    if (gLed == 0)
+    {
+        SetLed (0);
+    }
+    else if (gLed == 1)
+    {
+        SetLed (1);
+    }
+
+    // Sensor Name
+    if (gName != NULL)
+    {
+        if (strcmp (gName, "?") == 0)
+        {
+            // Get Name
+            if (GetName () < 0)
+                return EXIT_FAILURE;
+        }
+        else
+        {
+            // Set Name
+            if (SetName () < 0)
+                return EXIT_FAILURE;
+            else
+                return EXIT_SUCCESS;
+        }
     }
 
     // Read Temperature
