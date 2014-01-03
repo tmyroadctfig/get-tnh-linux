@@ -1,7 +1,7 @@
 //==========================================================================
 // Application Information
 //==========================================================================
-//  Copyright (c) 2012 DogRatIan.  All rights reserved.
+//  Copyright (c) 2012-2014 DogRatIan.  All rights reserved.
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
 #define STR_PRJ_NAME_(x)        STR_PRJ_NAME1_(x)
 #define STR_PROGNAME            STR_PRJ_NAME_(PRJ_NAME)
 
-#define STR_VERSION             "V1.01.00"
-#define STR_COPYRIGHT           "Copyright 2012 DogRatIan"
+#define STR_VERSION             "V1.02.00"
+#define STR_COPYRIGHT           "Copyright 2012-2014 DogRatIan"
 
 //==========================================================================
 // Version Informations
@@ -37,7 +37,13 @@
 /*
     History
    ------------------------------------------------------------------------
-    2012-SEP-06 (Version 1.00.00)
+    2014-JAN-03 (Version 1.02.00)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     1. Add argument to turn on/off LED.
+     2. Add argument to set/get sensor name.
+     
+
+    2012-SEP-06 (Version 1.01.00)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
      Released under GPLv3.
 */
